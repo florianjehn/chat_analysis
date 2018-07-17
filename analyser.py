@@ -6,6 +6,7 @@ Created on Thu Jul  5 19:42:05 2018
 """
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import datetime
 
 def read_chat(file):
@@ -38,17 +39,22 @@ def read_chat(file):
             person, message = seperate_messsage_person(message_with_person)
             
             # Shorten Person
-            person = "F" if person == "Florian(you)" else "P"
+            person = person[:2]
+            # Exclude entries where the person is empty
+            if person == "":
+                continue
+            
+            # Add a better date describer and make the month better sortable
+            month = date.month if date.month > 9 else "0" + str(date.month)            
+            month_year = str(date.year) + "/" + str(month)
 
             # Determine what the message consists of
             topic = determine_message_topic(message)
 
             # Save the things already known and prepare the other ones
-            save_dict = {"date": date, "person": person, "file": 0, "pic": 0,
-                         "voice_msg": 0, "sticker": 0, "link": 0, "gif": 0,
-                         "text": 0, "video": 0, "contact": 0, "location": 0}
+            save_dict = {"date": date, "person": person, "topic": topic,
+                         "year/month": month_year}
             # Save the topic
-            save_dict[topic] = 1
             save_list.append(save_dict)
         
     return create_dataframe(save_list)
@@ -60,6 +66,8 @@ def create_dataframe(save_list):
     """
     df = pd.DataFrame(save_list)
     df.set_index("date", inplace=True)
+    
+
     return df
             
             
@@ -101,13 +109,86 @@ def determine_message_topic(message):
     # Return the correct type
     return lookup_dict[msg_type]
 
-         
             
+def plot_whole_timeseries_by_type_person(chat_df):
+    """Plots lineplots for all different types and persons"""
+    grouped = chat_df.groupby(["topic", "person", "year/month"])
+    amounts_per_month = grouped.size()
+    persons = chat_df["person"].unique()
+    topics = chat_df["topic"].unique()
+    fig, subplots = plt.subplots(nrows=len(topics), sharex=True)
+    for i, topic in enumerate(topics):
+        print(topic)
+        ax = subplots[i]
+        ax.set_title(topic.title())
+        for person in persons:    
+            print(person)
+            # This will fail if the person has never done this kind of message
+            try:
+                amounts_per_person_topic = pd.DataFrame(amounts_per_month.loc[(topic, person)].sort_index())
+            except:
+                amounts_per_person_topic = pd.DataFrame(0, index=sorted(chat_df["year/month"].unique()), columns=[0])
+            # Create an empty dataframe with all dates of the original df,
+            # So plottin is easier and add all the values from the other df
+            plot_df = pd.DataFrame(0, index=sorted(chat_df["year/month"].unique()), columns=["count"])
+            plot_df = pd.merge(plot_df, amounts_per_person_topic, left_index=True, right_index=True, how="left")
+            plot_df.replace(np.nan, 0, inplace=True)
+            del plot_df["count"]
+            # Convert it to int
+            plot_df[plot_df.columns[0]] == plot_df[plot_df.columns[0]].astype(int)
+            # Delete the last row, as the month is not finished
+            plot_df = plot_df.iloc[:-1,:]
+            # Plot it
+            ax.plot(plot_df, label=person)
+            # Add the legend only in the first plot
+            if i == 0:
+                ax.legend()
+            # Add the xlabel only in teh last plot and rotate the ticklabels
+            if i == len(topics):
+                ax.set_xlabel("Year/Month")
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)      
+            # Make the plot nicer
+            ax.set_facecolor("white")
+            ax.grid(color="grey", alpha=0.3)
+        
+        ax.set_ylabel("Amount")
+    fig.set_size_inches(10,30)
+    fig.tight_layout()
+    plt.savefig("chat.png", dpi=250, bbox_inches="tight")
+
     
     
     
-    
-chat_df = read_chat("chat_hist_pau_begin_bis_180705.txt")
+chat_df = read_chat("club_der_freunde.txt")
 print(chat_df)
+plot_whole_timeseries_by_type_person(chat_df)
+
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
