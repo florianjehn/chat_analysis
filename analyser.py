@@ -124,6 +124,7 @@ def plot_whole_timeseries_by_type_person(chat_df):
         for person in persons:    
             print(person)
             # This will fail if the person has never done this kind of message
+            # Therefore create an empty dataframe for the person
             try:
                 amounts_per_person_topic = pd.DataFrame(amounts_per_month.loc[(topic, person)].sort_index())
             except:
